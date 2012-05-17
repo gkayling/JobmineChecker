@@ -35,5 +35,10 @@ def parseHTML(html):
     app += line.rstrip('\n')
   return apps 
 
-print parseHTML(open("response"))
+apps = parseHTML(open("response"))
+connection = Connection('localhost', 27017)
+db = connection['jobmine']
+collection = db['applications']
+for app in apps:
+  collection.insert(app)
 
