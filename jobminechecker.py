@@ -1,6 +1,7 @@
 import urllib, urllib2, cookielib, sys, re
 import simplejson as json
 from pymongo import Connection
+import hashlib
 
 g_username = 'username'
 g_password = 'password'
@@ -18,25 +19,31 @@ def getApps(username, password):
   resp = opener.open(source)
   return resp.read()
 
-def parseHTML(html):
+def parseHTML(html, username):
   intr = False
   apps = []
   app = ''
-  #for line in open("response"):
   for line in html:
+   prehash = ''
    if "trUW_CO_APPS_VW2" in line:
     intr = True
    elif intr and '</tr>' in line:
     intr = False
     appsplit = app.split('><')
-    app = '{'
+    app = ''
     for s in appsplit: #this is gross, fix this later
       if 'a name=\'UW_CO_JB_TITLE2' in s:
-        app += '"job_title":"' + re.search(r'>.*</a$', s).group()[1:-3] + '",'
+        field = re.search(r'>.*</a$', s).group()[1:-3]
+        app += '"job_title":"' + field + '",'
+        prehash += field
       elif 'id=\'UW_CO_JOBINFOVW_UW_CO_PARENT_NAME' in s:
-        app += '"company":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
+        field = re.search(r'>.*</span$', s).group()[1:-6]
+        app += '"company":"' + field + '",'
+        prehash += field
       elif 'id=\'UW_CO_TERMCALND_UW_CO_DESCR_30' in s:
-        app += '"term":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
+        field = re.search(r'>.*</span$', s).group()[1:-6]
+        app += '"term":"' + field + '",'
+        prehash += field
       elif 'id=\'UW_CO_JOBSTATVW_UW_CO_JOB_STATUS' in s:
         app += '"job_status":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
       elif 'id=\'UW_CO_APPSTATVW_UW_CO_APPL_STATUS' in s:
@@ -44,8 +51,9 @@ def parseHTML(html):
       elif 'id=\'UW_CO_JOBINFOVW_UW_CO_CHAR_DATE' in s:
         app += '"app_date":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
       elif 'id=\'UW_CO_JOBAPP_CT_UW_CO_MAX_RESUME' in s:
-        app += '"num_resumes":"' + re.search(r'>.*</span$', s).group()[1:-6] + '"}'
+        app += '"num_resumes":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
 
+    app += '"hash":"' + hash(prehash + username) + '"'
     apps.append(app)
     app = ''
     #break
@@ -53,11 +61,17 @@ def parseHTML(html):
     app += line.rstrip('\n')
   return apps
 
-apps = parseHTML(open("response"))
+def hash(string):
+  sha1 = hashlib.sha1()
+  sha1.update(string)
+  return sha1.hexdigest()
+
+apps = parseHTML(open("response"), g_username)
 #apps = parseHTML(g_username, g_password)
 db = Connection('localhost', 27017).jobmine
 collection = db.applications
 for app in apps:
-  collection.insert(json.loads(app))
+  print '{"user":"' + g_username + '",' + app + '}'
+  collection.insert(json.loads('{"user":"' + g_username + '",' + app + '}'))
 
 #print getApps(g_username, g_password)
