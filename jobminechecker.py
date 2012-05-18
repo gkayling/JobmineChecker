@@ -15,7 +15,6 @@ def getApps(username, password):
   iframe = re.search(r'iframe.*">', resp.read()).group()
   source = re.search(r'src=".*"', iframe)
   source = source.group()[5:-1]
-  #1print 'opening ' + source
   resp = opener.open(source)
   return resp.read()
 
@@ -66,12 +65,28 @@ def hash(string):
   sha1.update(string)
   return sha1.hexdigest()
 
+fields = ['job_status', 'app_status', 'app_date']
+
 apps = parseHTML(open("response"), g_username)
 #apps = parseHTML(g_username, g_password)
 db = Connection('localhost', 27017).jobmine
 collection = db.applications
+message = ''
 for app in apps:
-  print '{"user":"' + g_username + '",' + app + '}'
-  collection.insert(json.loads('{"user":"' + g_username + '",' + app + '}'))
-
-#print getApps(g_username, g_password)
+  appjson = json.loads('{"user":"' + g_username + '",' + app + '}')
+  app = collection.find_one(json.loads('{"hash":"'+appjson['hash'] +'"}'))
+  if app == None:
+    collection.insert(appjson)
+    message += 'New ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
+  else:
+    changes = '';
+    change = False
+    for f in fields:
+      if app[f] != appjson[f]:
+        changes += '\n\t' + f + ": " + app[f] + ' -> ' + appjson[f]
+        change = True
+    if change:
+      message += '\nModified ' + appjson['job_title'] + ' at ' + appjson['company'] + ": " + changes
+if message == '':
+  message = 'No changes'
+print message
