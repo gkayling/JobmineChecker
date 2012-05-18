@@ -2,9 +2,21 @@ import urllib, urllib2, cookielib, sys, re
 import simplejson as json
 from pymongo import Connection
 import hashlib
+import smtplib
+from email.mime.text import MIMEText
 
 g_username = 'username'
 g_password = 'password'
+
+def sendEmail(emailAddr, message):
+  fromAddr = 'no-reply@jobminechecker.aws'
+  email = MIMEText(message)
+  email['Subject'] = 'Jobmine Digest'
+  email['From'] = fromAddr
+  email['To'] = emailAddr
+  s = smtplib.SMTP('localhost')
+  s.sendmail(fromAddr, [emailAddr], email.as_string())
+  s.quit()
 
 def getApps(username, password):
   cj = cookielib.CookieJar()
@@ -68,8 +80,8 @@ def hash(string):
 fields = ['job_status', 'app_status', 'app_date']
 
 #apps = parseHTML(open("response"), g_username)
-apps = parseHTML(open('response_orig'), g_username)
-#apps = parseHTML(getApps(g_username, g_password).split('\n'), g_username)
+#apps = parseHTML(open('response_orig'), g_username)
+apps = parseHTML(getApps(g_username, g_password).split('\n'), g_username)
 #print apps
 db = Connection('localhost', 27017).jobmine
 collection = db.applications
@@ -89,6 +101,7 @@ for app in apps:
         change = True
     if change:
       message += '\nModified ' + appjson['job_title'] + ' at ' + appjson['company'] + ": " + changes
-if message == '':
-  message = 'No changes'
-print message
+if message != '':
+  sendEmail('aylinggreg@gmail.com', message)
+  #message = 'No changes'
+#print message
