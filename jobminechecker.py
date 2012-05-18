@@ -98,9 +98,12 @@ for app in apps:
     for f in fields:
       if app[f] != appjson[f]:
         changes += '\n\t' + f + ": " + app[f] + ' -> ' + appjson[f]
+        app[f] = appjson[f]
         change = True
     if change:
       message += '\nModified ' + appjson['job_title'] + ' at ' + appjson['company'] + ": " + changes
+      collection.update({ '_id' : app['_id'] }, app, True) 
+         
 if message != '':
   sendEmail('aylinggreg@gmail.com', message)
   #message = 'No changes'
