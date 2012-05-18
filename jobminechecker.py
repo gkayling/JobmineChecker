@@ -67,8 +67,10 @@ def hash(string):
 
 fields = ['job_status', 'app_status', 'app_date']
 
-apps = parseHTML(open("response"), g_username)
-#apps = parseHTML(g_username, g_password)
+#apps = parseHTML(open("response"), g_username)
+apps = parseHTML(open('response_orig'), g_username)
+#apps = parseHTML(getApps(g_username, g_password).split('\n'), g_username)
+#print apps
 db = Connection('localhost', 27017).jobmine
 collection = db.applications
 message = ''
