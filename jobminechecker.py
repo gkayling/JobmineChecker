@@ -1,12 +1,10 @@
 import urllib, urllib2, cookielib, sys, re
+import base64
 import simplejson as json
 from pymongo import Connection
 import hashlib
 import smtplib
 from email.mime.text import MIMEText
-
-g_username = 'username'
-g_password = 'password'
 
 def sendEmail(emailAddr, message):
   fromAddr = 'no-reply@jobminechecker.aws'
@@ -79,32 +77,36 @@ def hash(string):
 
 fields = ['job_status', 'app_status', 'app_date']
 
-#apps = parseHTML(open("response"), g_username)
-#apps = parseHTML(open('response_orig'), g_username)
-apps = parseHTML(getApps(g_username, g_password).split('\n'), g_username)
-#print apps
 db = Connection('localhost', 27017).jobmine
-collection = db.applications
-message = ''
-for app in apps:
-  appjson = json.loads('{"user":"' + g_username + '",' + app + '}')
-  app = collection.find_one(json.loads('{"hash":"'+appjson['hash'] +'"}'))
-  if app == None:
-    collection.insert(appjson)
-    message += 'New ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
-  else:
-    changes = '';
-    change = False
-    for f in fields:
-      if app[f] != appjson[f]:
-        changes += '\n\t' + f + ": " + app[f] + ' -> ' + appjson[f]
-        app[f] = appjson[f]
-        change = True
-    if change:
-      message += '\nModified ' + appjson['job_title'] + ' at ' + appjson['company'] + ": " + changes
-      collection.update({ '_id' : app['_id'] }, app, True) 
-         
-if message != '':
-  sendEmail('aylinggreg@gmail.com', message)
-  #message = 'No changes'
-#print message
+users = db.users
+for user in list(users.find({'active':1})):
+#for user in list(users.find({'test':1})):
+  #apps = parseHTML(open("response"), user['user'])
+  #apps = parseHTML(open('response_orig'), g_username)
+  apps = parseHTML(getApps(user['user'], base64.b64decode(user['password'])).split('\n'), user['user'])
+  #print apps
+  collection = db.applications
+  message = ''
+  for app in apps:
+    appjson = json.loads('{"user":"' + user['user'] + '",' + app + '}')
+    app = collection.find_one(json.loads('{"hash":"'+appjson['hash'] +'"}'))
+    if app == None:
+      collection.insert(appjson)
+      message += 'New ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
+    elif app['app_status'] != 'Not Selected':
+      changes = '';
+      change = False
+      for f in fields:
+        if app[f] != appjson[f]:
+          changes += '\n\t' + f + ": " + app[f] + ' -> ' + appjson[f]
+          change = True
+          app[f] = appjson[f]
+      if change:
+        message += '\nModified ' + appjson['job_title'] + ' at ' + appjson['company'] + ': ' + changes + '\n'
+        collection.update({ '_id' : app['_id'] }, app, True) 
+  #doesn't send an email  
+  if message != '':
+    sendEmail(user['email'], message)
+    #message = 'No changes'
+  #print message
+
