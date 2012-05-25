@@ -6,7 +6,7 @@ username = raw_input("Enter your Jobmine username: ")
 password = base64.b64encode(getpass.getpass())
 email = raw_input("Enter your preferred email address: ")
 
-db = pymongo.Connection('localhost', 27017).jobminetest
+db = pymongo.Connection('localhost', 27017).jobmine
 users = db.users
 user = users.find_one({'user':username})
 if user == None:
