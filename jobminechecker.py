@@ -12,6 +12,7 @@ def sendEmail(emailAddr, message):
   email['Subject'] = 'Jobmine Digest'
   email['From'] = fromAddr
   email['To'] = emailAddr
+  #print email.as_string()
   s = smtplib.SMTP('localhost')
   s.sendmail(fromAddr, [emailAddr], email.as_string())
   s.quit()
@@ -80,9 +81,10 @@ fields = ['job_status', 'app_status', 'app_date']
 db = Connection('localhost', 27017).jobmine
 users = db.users
 for user in list(users.find({'active':1})):
+  print user
 #for user in list(users.find({'test':1})):
   #apps = parseHTML(open("response"), user['user'])
-  #apps = parseHTML(open('response_orig'), g_username)
+  #apps = parseHTML(open('response_orig'), 'gkayling')
   apps = parseHTML(getApps(user['user'], base64.b64decode(user['password'])).split('\n'), user['user'])
   #print apps
   collection = db.applications
@@ -92,12 +94,16 @@ for user in list(users.find({'active':1})):
     app = collection.find_one(json.loads('{"hash":"'+appjson['hash'] +'"}'))
     if app == None:
       collection.insert(appjson)
-      message += 'New ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
-    elif app['app_status'] != 'Not Selected':
+      message += '\nNew ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
+    elif 'app_status' in app and (app['app_status'] != 'Not Selected' or app['app_status'] != 'Ranking Completed'):
       changes = '';
       change = False
       for f in fields:
-        if app[f] != appjson[f]:
+        if f not in appjson:
+          changes += '\n\t' + f + ": " + app[f] + ' -> ' + 'N/A'
+          change = True  
+          del app[f]
+        elif app[f] != appjson[f]:
           changes += '\n\t' + f + ": " + app[f] + ' -> ' + appjson[f]
           change = True
           app[f] = appjson[f]
