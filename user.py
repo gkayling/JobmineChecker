@@ -1,7 +1,4 @@
-import sys, pymongo
-
-import getpass, base64, pymongo
-
+import sys, pymongo, getpass, base64
 
 def newUser():
   username = raw_input("Enter your Jobmine username: ")

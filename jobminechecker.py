@@ -1,9 +1,6 @@
-import urllib, urllib2, cookielib, sys, re
-import base64
+import urllib, urllib2, cookielib, sys, re, base64, hashlib, smtplib
 import simplejson as json
 from pymongo import Connection
-import hashlib
-import smtplib
 from email.mime.text import MIMEText
 
 def sendEmail(emailAddr, message):
