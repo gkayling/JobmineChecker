@@ -26,46 +26,42 @@ def getApps(username, password):
   resp = opener.open(source)
   return resp.read()
 
+def extractField(f, string):
+  if f == 'a name=\'UW_CO_JB_TITLE2':
+    return re.search(r'>.*</a$', string).group()[1:-3]
+  else:
+    return re.search(r'>.*</span$', string).group()[1:-6]
+
 def parseHTML(html, username):
   intr = False
   apps = []
   app = ''
+  fields = {'a name=\'UW_CO_JB_TITLE2':'job_title', 'id=\'UW_CO_JOBINFOVW_UW_CO_PARENT_NAME':'company', 'id=\'UW_CO_TERMCALND_UW_CO_DESCR_30':'term', 'id=\'UW_CO_JOBSTATVW_UW_CO_JOB_STATUS':'job_status', 'id=\'UW_CO_APPSTATVW_UW_CO_APPL_STATUS':'app_status', 'id=\'UW_CO_JOBINFOVW_UW_CO_CHAR_DATE':'app_date', 'id=\'UW_CO_JOBAPP_CT_UW_CO_MAX_RESUME':'num_resumes'}
+  hashfields = ['job_title', 'company', 'term']
+  appjson = {}
+  prehash = ''
   for line in html:
-   prehash = ''
    if "trUW_CO_APPS_VW2" in line:
     intr = True
    elif intr and '</tr>' in line:
     intr = False
     appsplit = app.split('><')
     app = ''
-    for s in appsplit: #this is gross, fix this later
-      if 'a name=\'UW_CO_JB_TITLE2' in s:
-        field = re.search(r'>.*</a$', s).group()[1:-3]
-        app += '"job_title":"' + field + '",'
-        prehash += field
-      elif 'id=\'UW_CO_JOBINFOVW_UW_CO_PARENT_NAME' in s:
-        field = re.search(r'>.*</span$', s).group()[1:-6]
-        app += '"company":"' + field + '",'
-        prehash += field
-      elif 'id=\'UW_CO_TERMCALND_UW_CO_DESCR_30' in s:
-        field = re.search(r'>.*</span$', s).group()[1:-6]
-        app += '"term":"' + field + '",'
-        prehash += field
-      elif 'id=\'UW_CO_JOBSTATVW_UW_CO_JOB_STATUS' in s:
-        app += '"job_status":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
-      elif 'id=\'UW_CO_APPSTATVW_UW_CO_APPL_STATUS' in s:
-        app += '"app_status":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
-      elif 'id=\'UW_CO_JOBINFOVW_UW_CO_CHAR_DATE' in s:
-        app += '"app_date":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
-      elif 'id=\'UW_CO_JOBAPP_CT_UW_CO_MAX_RESUME' in s:
-        app += '"num_resumes":"' + re.search(r'>.*</span$', s).group()[1:-6] + '",'
-
-    app += '"hash":"' + hash(prehash + username) + '"'
-    apps.append(app)
+    for s in appsplit:
+      for f in fields:
+        if f in s:
+          value = extractField(f, s)
+          if fields[f] in hashfields:
+            prehash += value
+          appjson[fields[f]] = value
+    appjson['hash'] = hash(prehash + username)
+    apps.append(appjson)
     app = ''
+    appjson = {}
     #break
    elif intr:
     app += line.rstrip('\n')
+  #print str(apps)
   return apps
 
 def hash(string):
@@ -75,20 +71,21 @@ def hash(string):
 
 fields = ['job_status', 'app_status', 'app_date']
 
-db = Connection('localhost', 27017).jobmine
+db = Connection('localhost', 27017).jobmine#test
 users = db.users
 for user in list(users.find({'active':1})):
-  print user
-#for user in list(users.find({'test':1})):
   #apps = parseHTML(open("response"), user['user'])
-  #apps = parseHTML(open('response_orig'), 'gkayling')
+  #apps = parseHTML(open('response_orig'), user['user'])
+  #apps = parseHTML(open("response3"), user['user'])
   apps = parseHTML(getApps(user['user'], base64.b64decode(user['password'])).split('\n'), user['user'])
   #print apps
   collection = db.applications
   message = ''
+  #print str(apps)
   for app in apps:
-    appjson = json.loads('{"user":"' + user['user'] + '",' + app + '}')
-    app = collection.find_one(json.loads('{"hash":"'+appjson['hash'] +'"}'))
+    appjson = app
+    appjson['user'] = user['user']
+    app = collection.find_one({'hash':appjson['hash']})
     if app == None:
       collection.insert(appjson)
       message += '\nNew ' + appjson['job_title'] + ' at ' + appjson['company'] + '\n'
